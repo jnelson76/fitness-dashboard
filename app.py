@@ -574,6 +574,67 @@ def log_entry():
     return jsonify({"status": "ok"})
 
 
+@app.route("/api/checklist", methods=["POST"])
+def save_checklist():
+    """Save exercise checks and daily checklist state for a given date."""
+    data = load_data()
+    payload = request.json
+    day = payload.get("date", date.today().isoformat())
+
+    if "checklist_history" not in data:
+        data["checklist_history"] = {}
+
+    if day not in data["checklist_history"]:
+        data["checklist_history"][day] = {
+            "exercises": {},
+            "daily": {},
+            "workout_type": "",
+        }
+
+    record = data["checklist_history"][day]
+
+    if payload.get("kind") == "exercise":
+        record["exercises"][payload["name"]] = payload["checked"]
+        record["workout_type"] = payload.get("workout_type", "")
+    elif payload.get("kind") == "daily":
+        record["daily"][payload["item"]] = payload["checked"]
+
+    save_data(data)
+    return jsonify({"status": "ok"})
+
+
+@app.route("/api/checklist/<day>")
+def get_checklist(day):
+    """Get checklist state for a given date."""
+    data = load_data()
+    history = data.get("checklist_history", {})
+    return jsonify(history.get(day, {"exercises": {}, "daily": {}, "workout_type": ""}))
+
+
+@app.route("/api/history")
+def get_history():
+    """Get last 30 days of checklist history for the streak view."""
+    data = load_data()
+    history = data.get("checklist_history", {})
+    # Return last 30 days sorted
+    sorted_days = sorted(history.keys(), reverse=True)[:30]
+    result = []
+    for day in sorted_days:
+        record = history[day]
+        ex = record.get("exercises", {})
+        daily = record.get("daily", {})
+        ex_total = len(ex)
+        ex_done = sum(1 for v in ex.values() if v)
+        result.append({
+            "date": day,
+            "workout_type": record.get("workout_type", ""),
+            "exercises_done": ex_done,
+            "exercises_total": ex_total,
+            "daily": daily,
+        })
+    return jsonify(result)
+
+
 @app.route("/api/data")
 def get_data():
     return jsonify(load_data())

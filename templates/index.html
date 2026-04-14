@@ -592,6 +592,18 @@
           </div>
         </div>
 
+        <!-- History -->
+        <div class="col-md-12">
+          <div class="card">
+            <div class="card-header"><i class="bi bi-calendar-range section-icon"></i>History (Last 30 Days)</div>
+            <div class="card-body">
+              <div id="historyView">
+                <p class="text-muted text-center">Loading history...</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -648,22 +660,36 @@
 <script>
 function toggleCheck(btn) {
   btn.classList.toggle('checked');
-  const key = 'check_' + btn.dataset.item + '_{{ today }}';
-  localStorage.setItem(key, btn.classList.contains('checked'));
+  const checked = btn.classList.contains('checked');
+  // Save to server
+  fetch('/api/checklist', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({kind: 'daily', item: btn.dataset.item, checked: checked, date: '{{ today }}'})
+  });
 }
 
 function toggleExercise(card) {
   card.classList.toggle('ex-done');
   const icon = card.querySelector('.ex-check-icon');
-  if (card.classList.contains('ex-done')) {
+  const checked = card.classList.contains('ex-done');
+  if (checked) {
     icon.className = 'bi bi-check-square-fill ex-check-icon me-2';
     icon.style.color = 'var(--green)';
   } else {
     icon.className = 'bi bi-square ex-check-icon me-2';
     icon.style.color = 'var(--muted)';
   }
-  const key = 'ex_' + card.dataset.ex + '_{{ today }}';
-  localStorage.setItem(key, card.classList.contains('ex-done'));
+  // Save to server
+  const exName = card.querySelector('h6').textContent.trim();
+  fetch('/api/checklist', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      kind: 'exercise', name: exName, checked: checked,
+      workout_type: '{{ today_schedule.label }}', date: '{{ today }}'
+    })
+  });
   updateExProgress();
 }
 
@@ -682,24 +708,52 @@ function updateExProgress() {
   }
 }
 
-// Restore state on load
+function loadHistory() {
+  fetch('/api/history').then(r => r.json()).then(days => {
+    const el = document.getElementById('historyView');
+    if (!el || !days.length) return;
+    let html = '<table class="table table-sm table-dark" style="font-size:0.82rem;"><thead><tr><th>Date</th><th>Workout</th><th>Exercises</th><th>Protein</th><th>Steps</th><th>Water</th><th>Sleep</th></tr></thead><tbody>';
+    days.forEach(d => {
+      const pct = d.exercises_total > 0 ? Math.round(d.exercises_done / d.exercises_total * 100) : 0;
+      const pctColor = pct === 100 ? 'var(--green)' : pct > 0 ? 'var(--accent2)' : 'var(--muted)';
+      const check = (key) => d.daily[key] ? '<i class="bi bi-check-circle-fill" style="color:var(--green);"></i>' : '<i class="bi bi-circle" style="color:#333;"></i>';
+      html += '<tr>';
+      html += '<td>' + d.date + '</td>';
+      html += '<td style="font-size:0.75rem;">' + (d.workout_type || '-') + '</td>';
+      html += '<td><span style="color:' + pctColor + ';">' + d.exercises_done + '/' + d.exercises_total + '</span></td>';
+      html += '<td>' + check('protein') + '</td>';
+      html += '<td>' + (d.daily['steps10k'] ? '<span style="color:var(--green);">10k</span>' : d.daily['steps5k'] ? '<span style="color:var(--accent2);">5k</span>' : '<i class="bi bi-circle" style="color:#333;"></i>') + '</td>';
+      html += '<td>' + check('water') + '</td>';
+      html += '<td>' + check('sleep') + '</td>';
+      html += '</tr>';
+    });
+    html += '</tbody></table>';
+    el.innerHTML = html;
+  });
+}
+
+// Restore state from server on load
 document.addEventListener('DOMContentLoaded', () => {
-  document.querySelectorAll('.tracker-btn').forEach(btn => {
-    const key = 'check_' + btn.dataset.item + '_{{ today }}';
-    if (localStorage.getItem(key) === 'true') {
-      btn.classList.add('checked');
-    }
+  fetch('/api/checklist/{{ today }}').then(r => r.json()).then(state => {
+    // Restore daily checklist
+    document.querySelectorAll('.tracker-btn').forEach(btn => {
+      if (state.daily[btn.dataset.item]) {
+        btn.classList.add('checked');
+      }
+    });
+    // Restore exercise checks
+    document.querySelectorAll('.ex-checkable').forEach(card => {
+      const exName = card.querySelector('h6').textContent.trim();
+      if (state.exercises[exName]) {
+        card.classList.add('ex-done');
+        const icon = card.querySelector('.ex-check-icon');
+        icon.className = 'bi bi-check-square-fill ex-check-icon me-2';
+        icon.style.color = 'var(--green)';
+      }
+    });
+    updateExProgress();
   });
-  document.querySelectorAll('.ex-checkable').forEach(card => {
-    const key = 'ex_' + card.dataset.ex + '_{{ today }}';
-    if (localStorage.getItem(key) === 'true') {
-      card.classList.add('ex-done');
-      const icon = card.querySelector('.ex-check-icon');
-      icon.className = 'bi bi-check-square-fill ex-check-icon me-2';
-      icon.style.color = 'var(--green)';
-    }
-  });
-  updateExProgress();
+  loadHistory();
 });
 
 function logWeight() {
