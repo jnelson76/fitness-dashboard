@@ -143,12 +143,12 @@
           <div class="card h-100">
             <div class="card-header d-flex justify-content-between align-items-center">
               <span><i class="bi bi-calendar-check section-icon"></i>{{ day_name }} - {{ today_schedule.label }}</span>
-              {% if today_schedule.type in ['workout_a', 'workout_b'] %}
+              {% if today_schedule.type in ['workout_a', 'workout_b', 'workout_c'] %}
                 <span class="badge badge-workout">LIFT DAY</span>
-              {% elif today_schedule.type == 'cardio' %}
-                <span class="badge badge-cardio">CARDIO</span>
-              {% elif today_schedule.type == 'kettlebell' %}
+              {% elif today_schedule.type in ['kettlebell', 'kettlebell_light'] %}
                 <span class="badge badge-kettlebell">KETTLEBELL</span>
+              {% elif today_schedule.type in ['bands_walk', 'walk_bands'] %}
+                <span class="badge badge-cardio">BANDS + WALK</span>
               {% else %}
                 <span class="badge badge-rest">REST</span>
               {% endif %}
@@ -158,6 +158,11 @@
                 <div class="d-flex justify-content-between mb-3">
                   <span class="text-muted" style="font-size: 0.85rem;"><i class="bi bi-clock"></i> {{ today_workout.duration }}</span>
                 </div>
+                {% if today_workout.get('daily') %}
+                <div class="mb-2 p-2" style="background: rgba(40,167,69,0.1); border-radius: 6px; font-size: 0.82rem; border-left: 3px solid var(--green);">
+                  <i class="bi bi-pin-angle"></i> <strong>DAILY:</strong> {{ today_workout.daily }}
+                </div>
+                {% endif %}
                 <div class="mb-3 p-2" style="background: rgba(13,202,240,0.08); border-radius: 6px; font-size: 0.85rem;">
                   <strong>Warm-up:</strong> {{ today_workout.warmup }}
                 </div>
@@ -220,14 +225,12 @@
               <div class="schedule-row {{ 'today' if s.day == day_name else '' }} text-center">
                 <div style="font-weight: 600; font-size: 0.85rem;">{{ s.day[:3] }}</div>
                 <div style="font-size: 0.75rem; color: var(--muted);">
-                  {% if s.type in ['workout_a', 'workout_b'] %}
+                  {% if s.type in ['workout_a', 'workout_b', 'workout_c'] %}
                     <span style="color: var(--accent);">{{ s.label.split(' - ')[0] }}</span>
-                  {% elif s.type == 'kettlebell' %}
+                  {% elif s.type in ['kettlebell', 'kettlebell_light'] %}
                     <span style="color: #ffc107;">KB</span>
-                  {% elif s.type == 'cardio' %}
-                    <span style="color: var(--accent2);">Cardio</span>
-                  {% elif s.type == 'active_rest' %}
-                    <span style="color: var(--green);">BW</span>
+                  {% elif s.type in ['bands_walk', 'walk_bands'] %}
+                    <span style="color: var(--accent2);">Bands+Walk</span>
                   {% else %}
                     <span>Rest</span>
                   {% endif %}
@@ -448,7 +451,10 @@
               <div class="d-flex flex-wrap gap-2 mb-3">
                 <button class="tracker-btn" onclick="toggleCheck(this)" data-item="workout"><i class="bi bi-lightning"></i> Workout Done</button>
                 <button class="tracker-btn" onclick="toggleCheck(this)" data-item="protein"><i class="bi bi-egg-fried"></i> Hit 190g Protein</button>
+                <button class="tracker-btn" onclick="toggleCheck(this)" data-item="steps5k"><i class="bi bi-signpost"></i> 5k Steps</button>
+                <button class="tracker-btn" onclick="toggleCheck(this)" data-item="steps10k"><i class="bi bi-signpost-2"></i> 10k Steps</button>
                 <button class="tracker-btn" onclick="toggleCheck(this)" data-item="water"><i class="bi bi-droplet"></i> Gallon of Water</button>
+                <button class="tracker-btn" onclick="toggleCheck(this)" data-item="bands"><i class="bi bi-arrows-expand"></i> Band Work</button>
                 <button class="tracker-btn" onclick="toggleCheck(this)" data-item="supplements"><i class="bi bi-capsule"></i> Supplements</button>
                 <button class="tracker-btn" onclick="toggleCheck(this)" data-item="sleep"><i class="bi bi-moon"></i> 7+ Hours Sleep</button>
                 <button class="tracker-btn" onclick="toggleCheck(this)" data-item="creatine"><i class="bi bi-cup-straw"></i> Creatine</button>
@@ -511,16 +517,25 @@
                 <div class="col-auto">
                   <select class="weight-input" id="logExercise">
                     <option value="">Select exercise...</option>
-                    <option>Squat</option>
-                    <option>Bench Press</option>
-                    <option>Deadlift</option>
+                    <option>Incline Bench Press</option>
                     <option>Overhead Press</option>
-                    <option>Dumbbell Curls</option>
+                    <option>Barbell Row</option>
+                    <option>Air Squats</option>
+                    <option>Goblet Squat</option>
+                    <option>Incline DB Press</option>
+                    <option>Push-ups</option>
                     <option>Skull Crushers</option>
+                    <option>Dumbbell Curls</option>
                     <option>KB Swing</option>
                     <option>Turkish Get-Up</option>
-                    <option>Goblet Squat</option>
                     <option>KB Clean & Press</option>
+                    <option>Band Face Pulls</option>
+                    <option>Band Pull-Aparts</option>
+                    <option>Band Lateral Raises</option>
+                    <option>Band Curls</option>
+                    <option>Band Chest Flyes</option>
+                    <option>Calf Raises</option>
+                    <option>Walking (steps)</option>
                   </select>
                 </div>
                 <div class="col-auto">
@@ -597,7 +612,8 @@
                 </div>
                 <div class="col-6">
                   <div class="tip-item"><i class="bi bi-check-circle-fill" style="color: var(--green);"></i> 2x 25 lb dumbbells</div>
-                  <div class="tip-item"><i class="bi bi-check-circle-fill" style="color: var(--green);"></i> 125 lb kettlebell</div>
+                  <div class="tip-item"><i class="bi bi-check-circle-fill" style="color: var(--green);"></i> 25 lb kettlebell</div>
+                  <div class="tip-item"><i class="bi bi-check-circle-fill" style="color: var(--green);"></i> Resistance bands</div>
                   <div class="tip-item"><i class="bi bi-check-circle-fill" style="color: var(--green);"></i> Leg / calf raise</div>
                 </div>
               </div>
