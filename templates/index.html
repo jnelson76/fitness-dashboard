@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Fitness Dashboard</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #1a1a2e;
+      --card-bg: #16213e;
+      --card-border: #0f3460;
+      --header-bg: #0f3460;
+      --accent: #e94560;
+      --accent2: #0dcaf0;
+      --green: #28a745;
+      --text: #e0e0e0;
+      --muted: #8899aa;
+    }
+    body { background: var(--bg-dark); color: var(--text); font-family: 'Segoe UI', system-ui, sans-serif; }
+    .card { background: var(--card-bg); border: 1px solid var(--card-border); }
+    .card-header { background: var(--header-bg); color: var(--text); font-weight: 600; }
+    .nav-pills .nav-link { color: var(--muted); }
+    .nav-pills .nav-link.active { background: var(--accent); color: #fff; }
+    .nav-pills .nav-link:hover:not(.active) { color: #fff; }
+    .badge-workout { background: var(--accent); }
+    .badge-rest { background: #6c757d; }
+    .badge-cardio { background: var(--accent2); color: #000; }
+    .badge-kettlebell { background: #ffc107; color: #000; }
+    .macro-bar { height: 8px; border-radius: 4px; background: #2a2a4e; overflow: hidden; }
+    .macro-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+    .macro-protein .macro-fill { background: var(--accent); }
+    .macro-carbs .macro-fill { background: var(--accent2); }
+    .macro-fat .macro-fill { background: #ffc107; }
+    .exercise-card { background: #111827; border: 1px solid #1e3a5f; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; }
+    .exercise-card h6 { color: var(--accent2); margin-bottom: 0.5rem; }
+    .exercise-meta { font-size: 0.82rem; color: var(--muted); }
+    .meal-card { background: #111827; border-radius: 8px; padding: 1rem; margin-bottom: 0.75rem; border-left: 3px solid var(--green); }
+    .meal-card h6 { color: var(--green); }
+    .schedule-row { padding: 0.5rem 0.75rem; border-radius: 6px; margin-bottom: 0.25rem; }
+    .schedule-row.today { background: rgba(233,69,96,0.15); border: 1px solid var(--accent); }
+    .schedule-row:not(.today) { background: rgba(255,255,255,0.03); }
+    .tip-item { padding: 0.4rem 0; border-bottom: 1px solid rgba(255,255,255,0.05); font-size: 0.88rem; }
+    .tip-item:last-child { border-bottom: none; }
+    .shopping-col { font-size: 0.85rem; }
+    .shopping-col li { padding: 0.15rem 0; }
+    .stat-number { font-size: 1.8rem; font-weight: 700; }
+    .stat-label { font-size: 0.75rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; }
+    .tracker-btn { border: 1px solid var(--card-border); background: transparent; color: var(--text); padding: 0.5rem 1rem; border-radius: 6px; cursor: pointer; transition: all 0.2s; }
+    .tracker-btn:hover { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .tracker-btn.checked { background: var(--green); border-color: var(--green); color: #fff; }
+    .weight-input { background: #111827; border: 1px solid var(--card-border); color: var(--text); border-radius: 6px; padding: 0.5rem; }
+    .weight-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 2px rgba(233,69,96,0.25); }
+    .footer-note { color: #555; font-size: 0.78rem; }
+    .swap-badge { background: rgba(13,202,240,0.15); color: var(--accent2); font-size: 0.78rem; padding: 0.25rem 0.5rem; border-radius: 4px; display: inline-block; margin: 0.15rem; }
+    .table-dark { --bs-table-bg: #0f1a30; }
+    .section-icon { font-size: 1.2rem; margin-right: 0.5rem; }
+    @media (max-width: 768px) {
+      .stat-number { font-size: 1.4rem; }
+    }
+  </style>
+</head>
+<body>
+<div class="container-fluid py-3" style="max-width: 1400px;">
+
+  <!-- Header -->
+  <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap">
+    <div>
+      <h4 class="mb-0"><i class="bi bi-lightning-charge-fill" style="color: var(--accent);"></i> Fitness Dashboard</h4>
+      <small class="text-muted">{{ profile.goal }} | {{ profile.height }} / {{ profile.weight }} lbs / Age {{ profile.age }}</small>
+    </div>
+    <span class="footer-note">{{ today }} - {{ day_name }}</span>
+  </div>
+
+  <!-- Navigation -->
+  <ul class="nav nav-pills mb-3" id="mainTabs" role="tablist">
+    <li class="nav-item"><a class="nav-link active" data-bs-toggle="pill" href="#today-tab">Today</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#program-tab">Full Program</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#nutrition-tab">Nutrition</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#shopping-tab">Shopping</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#tracker-tab">Tracker</a></li>
+    <li class="nav-item"><a class="nav-link" data-bs-toggle="pill" href="#tips-tab">Training Tips</a></li>
+  </ul>
+
+  <div class="tab-content">
+
+    <!-- ==================== TODAY TAB ==================== -->
+    <div class="tab-pane fade show active" id="today-tab">
+      <div class="row g-3">
+
+        <!-- Daily Stats -->
+        <div class="col-md-4">
+          <div class="card h-100">
+            <div class="card-header"><i class="bi bi-bullseye section-icon"></i>Daily Targets</div>
+            <div class="card-body">
+              <div class="row text-center mb-3">
+                <div class="col-3">
+                  <div class="stat-number" style="color: var(--accent);">{{ profile.calories }}</div>
+                  <div class="stat-label">Calories</div>
+                </div>
+                <div class="col-3">
+                  <div class="stat-number" style="color: var(--accent);">{{ profile.protein }}g</div>
+                  <div class="stat-label">Protein</div>
+                </div>
+                <div class="col-3">
+                  <div class="stat-number" style="color: var(--accent2);">{{ profile.carbs }}g</div>
+                  <div class="stat-label">Carbs</div>
+                </div>
+                <div class="col-3">
+                  <div class="stat-number" style="color: #ffc107;">{{ profile.fat }}g</div>
+                  <div class="stat-label">Fat</div>
+                </div>
+              </div>
+              <div class="mb-2">
+                <small class="text-muted">Protein</small>
+                <div class="macro-bar macro-protein"><div class="macro-fill" style="width: 100%;"></div></div>
+              </div>
+              <div class="mb-2">
+                <small class="text-muted">Carbs</small>
+                <div class="macro-bar macro-carbs"><div class="macro-fill" style="width: 100%;"></div></div>
+              </div>
+              <div class="mb-3">
+                <small class="text-muted">Fat</small>
+                <div class="macro-bar macro-fat"><div class="macro-fill" style="width: 100%;"></div></div>
+              </div>
+
+              <h6 class="mt-3 mb-2" style="color: var(--accent2);">Supplements</h6>
+              <table class="table table-sm table-dark mb-0" style="font-size: 0.82rem;">
+                {% for s in supplements %}
+                <tr>
+                  <td>{{ s.name }}</td>
+                  <td class="text-end text-muted">{{ s.dose }}</td>
+                </tr>
+                {% endfor %}
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Today's Workout -->
+        <div class="col-md-8">
+          <div class="card h-100">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <span><i class="bi bi-calendar-check section-icon"></i>{{ day_name }} - {{ today_schedule.label }}</span>
+              {% if today_schedule.type in ['workout_a', 'workout_b'] %}
+                <span class="badge badge-workout">LIFT DAY</span>
+              {% elif today_schedule.type == 'cardio' %}
+                <span class="badge badge-cardio">CARDIO</span>
+              {% elif today_schedule.type == 'kettlebell' %}
+                <span class="badge badge-kettlebell">KETTLEBELL</span>
+              {% else %}
+                <span class="badge badge-rest">REST</span>
+              {% endif %}
+            </div>
+            <div class="card-body">
+              {% if today_workout %}
+                <div class="d-flex justify-content-between mb-3">
+                  <span class="text-muted" style="font-size: 0.85rem;"><i class="bi bi-clock"></i> {{ today_workout.duration }}</span>
+                </div>
+                <div class="mb-3 p-2" style="background: rgba(13,202,240,0.08); border-radius: 6px; font-size: 0.85rem;">
+                  <strong>Warm-up:</strong> {{ today_workout.warmup }}
+                </div>
+                {% for ex in today_workout.exercises %}
+                <div class="exercise-card">
+                  <div class="d-flex justify-content-between align-items-start">
+                    <h6 class="mb-1">{{ ex.name }}</h6>
+                    <span class="badge bg-secondary">{{ ex.sets }}</span>
+                  </div>
+                  <div class="exercise-meta">
+                    <div><strong>Target:</strong> {{ ex.target }}</div>
+                    <div><strong>Start:</strong> {{ ex.start }}</div>
+                    <div><strong>Equipment:</strong> {{ ex.equipment }}</div>
+                    <div class="mt-1" style="color: #d1d5db;">{{ ex.notes }}</div>
+                  </div>
+                </div>
+                {% endfor %}
+                {% if today_workout.get('week_rotation') %}
+                <div class="mt-3 p-2" style="background: rgba(255,193,7,0.08); border-radius: 6px; font-size: 0.85rem;">
+                  <strong>Week Rotation:</strong>
+                  {% for note in today_workout.week_rotation %}
+                  <div class="mt-1">{{ note }}</div>
+                  {% endfor %}
+                </div>
+                {% endif %}
+                {% if today_workout.get('program_note') %}
+                <div class="mt-3 p-2" style="background: rgba(40,167,69,0.1); border-radius: 6px; font-size: 0.85rem; border-left: 3px solid var(--green);">
+                  <strong><i class="bi bi-diagram-3"></i> Kettlebell Pyramid:</strong>
+                  <div class="mt-1">{{ today_workout.program_note }}</div>
+                  <div class="mt-2" style="font-size: 0.8rem; color: var(--muted);">
+                    <div><strong>L1:</strong> Swing, TGU, Goblet Squat <span style="color: var(--green);">(YOU ARE HERE)</span></div>
+                    <div><strong>L2:</strong> Clean, Military Press, Snatch, Push Press, Jerk</div>
+                    <div><strong>L3:</strong> Single KB Power & Endurance Training</div>
+                    <div><strong>L4:</strong> Double KB - Swing, Clean, Squat, Press, Snatch, Push Press, Jerk</div>
+                    <div><strong>L5:</strong> Double KB Power & Endurance Training</div>
+                  </div>
+                </div>
+                {% endif %}
+              {% else %}
+                <div class="text-center py-5">
+                  <i class="bi bi-emoji-sunglasses" style="font-size: 3rem; color: var(--muted);"></i>
+                  <h5 class="mt-3 text-muted">Rest Day</h5>
+                  <p class="text-muted">Recovery is when muscle grows. Stay hydrated, hit your protein, sleep well.</p>
+                  <p class="text-muted" style="font-size: 0.85rem;">Optional: light walk, stretching, or foam rolling.</p>
+                </div>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- Weekly Schedule Overview -->
+      <div class="card mt-3">
+        <div class="card-header"><i class="bi bi-calendar-week section-icon"></i>Weekly Schedule</div>
+        <div class="card-body">
+          <div class="row">
+            {% for s in schedule %}
+            <div class="col-md">
+              <div class="schedule-row {{ 'today' if s.day == day_name else '' }} text-center">
+                <div style="font-weight: 600; font-size: 0.85rem;">{{ s.day[:3] }}</div>
+                <div style="font-size: 0.75rem; color: var(--muted);">
+                  {% if s.type in ['workout_a', 'workout_b'] %}
+                    <span style="color: var(--accent);">{{ s.label.split(' - ')[0] }}</span>
+                  {% elif s.type == 'kettlebell' %}
+                    <span style="color: #ffc107;">KB</span>
+                  {% elif s.type == 'cardio' %}
+                    <span style="color: var(--accent2);">Cardio</span>
+                  {% elif s.type == 'active_rest' %}
+                    <span style="color: var(--green);">BW</span>
+                  {% else %}
+                    <span>Rest</span>
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== FULL PROGRAM TAB ==================== -->
+    <div class="tab-pane fade" id="program-tab">
+      {% for key, workout in workouts.items() %}
+      <div class="card mb-3">
+        <div class="card-header">
+          <i class="bi bi-activity section-icon"></i>{{ workout.name }}
+          <span class="badge bg-secondary ms-2">{{ workout.duration }}</span>
+        </div>
+        <div class="card-body">
+          <div class="mb-3 p-2" style="background: rgba(13,202,240,0.08); border-radius: 6px; font-size: 0.85rem;">
+            <strong>Warm-up:</strong> {{ workout.warmup }}
+          </div>
+          <div class="row">
+            {% for ex in workout.exercises %}
+            <div class="col-md-6">
+              <div class="exercise-card">
+                <div class="d-flex justify-content-between align-items-start">
+                  <h6>{{ ex.name }}</h6>
+                  <span class="badge bg-secondary">{{ ex.sets }}</span>
+                </div>
+                <div class="exercise-meta">
+                  <div><strong>Target:</strong> {{ ex.target }}</div>
+                  <div><strong>Start:</strong> {{ ex.start }}</div>
+                  <div><strong>Equipment:</strong> {{ ex.equipment }}</div>
+                  <div class="mt-1" style="color: #d1d5db;">{{ ex.notes }}</div>
+                </div>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+          {% if workout.get('week_rotation') %}
+          <div class="mt-2 p-2" style="background: rgba(255,193,7,0.08); border-radius: 6px; font-size: 0.85rem;">
+            <strong>Week Rotation:</strong>
+            {% for note in workout.week_rotation %}
+            <div class="mt-1">{{ note }}</div>
+            {% endfor %}
+          </div>
+          {% endif %}
+          {% if workout.get('program_note') %}
+          <div class="mt-2 p-2" style="background: rgba(40,167,69,0.1); border-radius: 6px; font-size: 0.85rem; border-left: 3px solid var(--green);">
+            <strong><i class="bi bi-diagram-3"></i> Kettlebell Pyramid (Geoff Neupert / StrongFirst):</strong>
+            <div class="mt-1">{{ workout.program_note }}</div>
+            <div class="mt-2" style="font-size: 0.8rem; color: var(--muted);">
+              <div><strong>L1:</strong> Swing, TGU, Goblet Squat <span style="color: var(--green);">(YOU ARE HERE)</span></div>
+              <div><strong>L2:</strong> Clean, Military Press, Snatch, Push Press, Jerk</div>
+              <div><strong>L3:</strong> Single KB Power & Endurance Training</div>
+              <div><strong>L4:</strong> Double KB - Swing, Clean, Squat, Press, Snatch, Push Press, Jerk</div>
+              <div><strong>L5:</strong> Double KB Power & Endurance Training</div>
+            </div>
+          </div>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+
+      <!-- Progression -->
+      <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-graph-up-arrow section-icon"></i>Progression Plan</div>
+        <div class="card-body">
+          {% for tip in progression_tips %}
+          <div class="tip-item"><i class="bi bi-arrow-right" style="color: var(--accent); margin-right: 0.5rem;"></i>{{ tip }}</div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== NUTRITION TAB ==================== -->
+    <div class="tab-pane fade" id="nutrition-tab">
+
+      <!-- Macro overview -->
+      <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-pie-chart section-icon"></i>Daily Macro Targets (Lean Bulk)</div>
+        <div class="card-body">
+          <div class="row text-center mb-3">
+            <div class="col-3">
+              <div class="stat-number" style="color: var(--accent);">{{ meal_plan.overview.calories }}</div>
+              <div class="stat-label">Total Calories</div>
+            </div>
+            <div class="col-3">
+              <div class="stat-number" style="color: var(--accent);">{{ meal_plan.overview.protein }}g</div>
+              <div class="stat-label">Protein (30%)</div>
+            </div>
+            <div class="col-3">
+              <div class="stat-number" style="color: var(--accent2);">{{ meal_plan.overview.carbs }}g</div>
+              <div class="stat-label">Carbs (40%)</div>
+            </div>
+            <div class="col-3">
+              <div class="stat-number" style="color: #ffc107;">{{ meal_plan.overview.fat }}g</div>
+              <div class="stat-label">Fat (30%)</div>
+            </div>
+          </div>
+          <div class="row">
+            {% for note in meal_plan.overview.notes %}
+            <div class="col-md-6">
+              <div class="tip-item"><i class="bi bi-check-circle" style="color: var(--green); margin-right: 0.5rem;"></i>{{ note }}</div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Meals -->
+      <div class="row g-3">
+        {% for meal in meal_plan.meals %}
+        <div class="col-md-6">
+          <div class="meal-card">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+              <h6 class="mb-0">{{ meal.name }}</h6>
+              <small class="text-muted">{{ meal.time }}</small>
+            </div>
+            <table class="table table-sm table-dark mb-2" style="font-size: 0.82rem;">
+              <thead><tr><th>Food</th><th class="text-end">Protein</th><th class="text-end">Cals</th></tr></thead>
+              <tbody>
+                {% for item in meal.foods %}
+                <tr>
+                  <td>{{ item.food }}</td>
+                  <td class="text-end">{{ item.protein }}g</td>
+                  <td class="text-end">{{ item.cals }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+              <tfoot>
+                <tr style="border-top: 1px solid var(--card-border);">
+                  <td><strong>Total</strong></td>
+                  <td class="text-end" style="color: var(--accent);"><strong>{{ meal.total_protein }}g</strong></td>
+                  <td class="text-end"><strong>{{ meal.total_cals }}</strong></td>
+                </tr>
+              </tfoot>
+            </table>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+
+      <!-- Daily total -->
+      <div class="card mt-3 mb-3">
+        <div class="card-body text-center">
+          <h5>Daily Totals from Meal Plan</h5>
+          <span style="font-size: 1.2rem;">
+            <strong style="color: var(--accent);">~{{ meal_plan.meals|sum(attribute='total_protein') }}g protein</strong>
+            &nbsp;|&nbsp;
+            <strong>~{{ meal_plan.meals|sum(attribute='total_cals') }} calories</strong>
+          </span>
+          <p class="text-muted mt-1 mb-0" style="font-size: 0.82rem;">
+            Remaining calories come from cooking fats, veggies, and flexibility in portions. Adjust portions up/down to hit 2600 cal target.
+          </p>
+        </div>
+      </div>
+
+      <!-- Swaps -->
+      <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-arrow-left-right section-icon"></i>Easy Swaps</div>
+        <div class="card-body">
+          {% for swap in swap_options %}
+          <span class="swap-badge">{{ swap }}</span>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== SHOPPING TAB ==================== -->
+    <div class="tab-pane fade" id="shopping-tab">
+      <div class="card">
+        <div class="card-header"><i class="bi bi-cart section-icon"></i>Weekly Shopping List</div>
+        <div class="card-body">
+          <div class="row">
+            {% for category, items in shopping_list.items() %}
+            <div class="col-md-3 shopping-col">
+              <h6 style="color: var(--accent2);">{{ category }}</h6>
+              <ul class="list-unstyled">
+                {% for item in items %}
+                <li><i class="bi bi-check2" style="color: var(--green); margin-right: 0.3rem;"></i>{{ item }}</li>
+                {% endfor %}
+              </ul>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Supplements -->
+      <div class="card mt-3">
+        <div class="card-header"><i class="bi bi-capsule section-icon"></i>Supplements</div>
+        <div class="card-body">
+          <table class="table table-sm table-dark">
+            <thead><tr><th>Supplement</th><th>Dose</th><th>When</th></tr></thead>
+            <tbody>
+              {% for s in supplements %}
+              <tr><td>{{ s.name }}</td><td>{{ s.dose }}</td><td class="text-muted">{{ s.when }}</td></tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ==================== TRACKER TAB ==================== -->
+    <div class="tab-pane fade" id="tracker-tab">
+      <div class="row g-3">
+
+        <!-- Daily Checklist -->
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header"><i class="bi bi-check2-square section-icon"></i>Daily Checklist - {{ today }}</div>
+            <div class="card-body">
+              <div class="d-flex flex-wrap gap-2 mb-3">
+                <button class="tracker-btn" onclick="toggleCheck(this)" data-item="workout"><i class="bi bi-lightning"></i> Workout Done</button>
+                <button class="tracker-btn" onclick="toggleCheck(this)" data-item="protein"><i class="bi bi-egg-fried"></i> Hit 190g Protein</button>
+                <button class="tracker-btn" onclick="toggleCheck(this)" data-item="water"><i class="bi bi-droplet"></i> Gallon of Water</button>
+                <button class="tracker-btn" onclick="toggleCheck(this)" data-item="supplements"><i class="bi bi-capsule"></i> Supplements</button>
+                <button class="tracker-btn" onclick="toggleCheck(this)" data-item="sleep"><i class="bi bi-moon"></i> 7+ Hours Sleep</button>
+                <button class="tracker-btn" onclick="toggleCheck(this)" data-item="creatine"><i class="bi bi-cup-straw"></i> Creatine</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Weight Log -->
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header"><i class="bi bi-graph-up section-icon"></i>Weight Log</div>
+            <div class="card-body">
+              <div class="d-flex gap-2 mb-3">
+                <input type="number" class="weight-input" id="weightInput" placeholder="Weight (lbs)" step="0.1" style="width: 140px;">
+                <button class="btn btn-sm" style="background: var(--accent); color: #fff;" onclick="logWeight()">Log Weight</button>
+              </div>
+              <div id="weightHistory" style="max-height: 300px; overflow-y: auto;">
+                {% if recent_weights %}
+                <table class="table table-sm table-dark" style="font-size: 0.82rem;">
+                  <thead><tr><th>Date</th><th class="text-end">Weight</th><th class="text-end">Change</th></tr></thead>
+                  <tbody>
+                    {% for w in recent_weights|reverse %}
+                    <tr>
+                      <td>{{ w.date }}</td>
+                      <td class="text-end">{{ w.value }} lbs</td>
+                      <td class="text-end">
+                        {% if loop.index < recent_weights|length %}
+                          {% set prev = recent_weights[recent_weights|length - loop.index - 1] %}
+                          {% set diff = w.value - prev.value %}
+                          {% if diff > 0 %}
+                            <span style="color: var(--green);">+{{ "%.1f"|format(diff) }}</span>
+                          {% elif diff < 0 %}
+                            <span style="color: var(--accent);">{{ "%.1f"|format(diff) }}</span>
+                          {% else %}
+                            <span class="text-muted">--</span>
+                          {% endif %}
+                        {% else %}
+                          <span class="text-muted">--</span>
+                        {% endif %}
+                      </td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+                {% else %}
+                <p class="text-muted text-center">No weight entries yet. Start logging!</p>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Workout Log -->
+        <div class="col-md-12">
+          <div class="card">
+            <div class="card-header"><i class="bi bi-journal-text section-icon"></i>Workout Log</div>
+            <div class="card-body">
+              <div class="row g-2 mb-3">
+                <div class="col-auto">
+                  <select class="weight-input" id="logExercise">
+                    <option value="">Select exercise...</option>
+                    <option>Squat</option>
+                    <option>Bench Press</option>
+                    <option>Deadlift</option>
+                    <option>Overhead Press</option>
+                    <option>Dumbbell Curls</option>
+                    <option>Skull Crushers</option>
+                    <option>KB Swing</option>
+                    <option>Turkish Get-Up</option>
+                    <option>Goblet Squat</option>
+                    <option>KB Clean & Press</option>
+                  </select>
+                </div>
+                <div class="col-auto">
+                  <input type="number" class="weight-input" id="logSets" placeholder="Sets" style="width: 70px;">
+                </div>
+                <div class="col-auto">
+                  <input type="number" class="weight-input" id="logReps" placeholder="Reps" style="width: 70px;">
+                </div>
+                <div class="col-auto">
+                  <input type="number" class="weight-input" id="logLbs" placeholder="Weight (lbs)" style="width: 120px;">
+                </div>
+                <div class="col-auto">
+                  <button class="btn btn-sm" style="background: var(--accent); color: #fff;" onclick="logWorkout()">Log Set</button>
+                </div>
+              </div>
+              <div id="workoutHistory" style="max-height: 300px; overflow-y: auto;">
+                {% if data.workout_log %}
+                <table class="table table-sm table-dark" style="font-size: 0.82rem;">
+                  <thead><tr><th>Date</th><th>Exercise</th><th>Sets</th><th>Reps</th><th>Weight</th></tr></thead>
+                  <tbody>
+                    {% for w in data.workout_log[-20:]|reverse %}
+                    <tr>
+                      <td>{{ w.timestamp[:10] }}</td>
+                      <td>{{ w.exercise }}</td>
+                      <td>{{ w.sets }}</td>
+                      <td>{{ w.reps }}</td>
+                      <td>{{ w.weight }} lbs</td>
+                    </tr>
+                    {% endfor %}
+                  </tbody>
+                </table>
+                {% else %}
+                <p class="text-muted text-center">No workout entries yet.</p>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ==================== TIPS TAB ==================== -->
+    <div class="tab-pane fade" id="tips-tab">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header"><i class="bi bi-lightbulb section-icon"></i>Training Principles</div>
+            <div class="card-body">
+              {% for tip in training_principles %}
+              <div class="tip-item"><i class="bi bi-fire" style="color: var(--accent); margin-right: 0.5rem;"></i>{{ tip }}</div>
+              {% endfor %}
+            </div>
+          </div>
+        </div>
+        <div class="col-md-6">
+          <div class="card">
+            <div class="card-header"><i class="bi bi-graph-up-arrow section-icon"></i>Progression Rules</div>
+            <div class="card-body">
+              {% for tip in progression_tips %}
+              <div class="tip-item"><i class="bi bi-arrow-up-right" style="color: var(--green); margin-right: 0.5rem;"></i>{{ tip }}</div>
+              {% endfor %}
+            </div>
+          </div>
+
+          <div class="card mt-3">
+            <div class="card-header"><i class="bi bi-tools section-icon"></i>Your Equipment</div>
+            <div class="card-body">
+              <div class="row" style="font-size: 0.88rem;">
+                <div class="col-6">
+                  <div class="tip-item"><i class="bi bi-check-circle-fill" style="color: var(--green);"></i> Bench (flat + incline)</div>
+                  <div class="tip-item"><i class="bi bi-check-circle-fill" style="color: var(--green);"></i> Squat rack</div>
+                  <div class="tip-item"><i class="bi bi-check-circle-fill" style="color: var(--green);"></i> Olympic barbell</div>
+                </div>
+                <div class="col-6">
+                  <div class="tip-item"><i class="bi bi-check-circle-fill" style="color: var(--green);"></i> 2x 25 lb dumbbells</div>
+                  <div class="tip-item"><i class="bi bi-check-circle-fill" style="color: var(--green);"></i> 125 lb kettlebell</div>
+                  <div class="tip-item"><i class="bi bi-check-circle-fill" style="color: var(--green);"></i> Leg / calf raise</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- end tab-content -->
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+function toggleCheck(btn) {
+  btn.classList.toggle('checked');
+  // Save to localStorage for persistence within the day
+  const key = 'check_' + btn.dataset.item + '_{{ today }}';
+  localStorage.setItem(key, btn.classList.contains('checked'));
+}
+
+// Restore check state on load
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.tracker-btn').forEach(btn => {
+    const key = 'check_' + btn.dataset.item + '_{{ today }}';
+    if (localStorage.getItem(key) === 'true') {
+      btn.classList.add('checked');
+    }
+  });
+});
+
+function logWeight() {
+  const val = parseFloat(document.getElementById('weightInput').value);
+  if (!val) return;
+  fetch('/api/log', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({type: 'weight', value: val, date: '{{ today }}'})
+  }).then(() => location.reload());
+}
+
+function logWorkout() {
+  const exercise = document.getElementById('logExercise').value;
+  const sets = document.getElementById('logSets').value;
+  const reps = document.getElementById('logReps').value;
+  const weight = document.getElementById('logLbs').value;
+  if (!exercise) return;
+  fetch('/api/log', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({type: 'workout', exercise, sets, reps, weight, date: '{{ today }}'})
+  }).then(() => location.reload());
+}
+</script>
+</body>
+</html>
