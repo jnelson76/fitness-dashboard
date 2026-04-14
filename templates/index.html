@@ -64,9 +64,26 @@
       text-decoration: line-through;
       color: var(--green) !important;
     }
-    .exercise-card.ex-checkable:hover {
-      border-color: var(--accent2);
+    .set-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.2rem;
+      background: transparent;
+      border: 1px solid var(--card-border);
+      color: var(--muted);
+      border-radius: 6px;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.78rem;
+      cursor: pointer;
+      transition: all 0.15s;
     }
+    .set-btn:hover { border-color: var(--accent2); color: var(--text); }
+    .set-btn.set-done {
+      background: var(--green);
+      border-color: var(--green);
+      color: #fff;
+    }
+    .set-btn .set-label { font-weight: 600; }
     @media (max-width: 768px) {
       .stat-number { font-size: 1.4rem; }
     }
@@ -178,10 +195,10 @@
                   <strong>Warm-up:</strong> {{ today_workout.warmup }}
                 </div>
                 {% for ex in today_workout.exercises %}
-                <div class="exercise-card ex-checkable" data-ex="{{ loop.index0 }}" onclick="toggleExercise(this)" style="cursor: pointer;">
+                <div class="exercise-card ex-card" data-ex="{{ loop.index0 }}" data-name="{{ ex.name }}" data-setcount="{{ ex.set_count }}">
                   <div class="d-flex justify-content-between align-items-start">
                     <div class="d-flex align-items-center">
-                      <i class="bi bi-square ex-check-icon me-2" style="font-size: 1.2rem; color: var(--muted);"></i>
+                      <i class="bi bi-square ex-card-icon me-2" style="font-size: 1.2rem; color: var(--muted);"></i>
                       <h6 class="mb-0">{{ ex.name }}</h6>
                     </div>
                     <span class="badge bg-secondary">{{ ex.sets }}</span>
@@ -192,10 +209,17 @@
                     <div><strong>Equipment:</strong> {{ ex.equipment }}</div>
                     <div class="mt-1" style="color: #d1d5db;">{{ ex.notes }}</div>
                   </div>
+                  <div class="d-flex gap-2 mt-2 ms-4 set-checkboxes">
+                    {% for s in range(ex.set_count) %}
+                    <button class="set-btn" data-set="{{ s }}" onclick="toggleSet(this, event)" title="Set {{ s + 1 }}">
+                      <i class="bi bi-square"></i><span class="set-label">{{ s + 1 }}</span>
+                    </button>
+                    {% endfor %}
+                  </div>
                 </div>
                 {% endfor %}
                 <div class="mt-2 text-end">
-                  <small class="text-muted ex-progress-text">0 / {{ today_workout.exercises|length }} complete</small>
+                  <small class="text-muted ex-progress-text">0 / {{ today_workout.exercises|length }} exercises complete</small>
                 </div>
                 {% if today_workout.get('week_rotation') %}
                 <div class="mt-3 p-2" style="background: rgba(255,193,7,0.08); border-radius: 6px; font-size: 0.85rem;">
@@ -669,24 +693,48 @@ function toggleCheck(btn) {
   });
 }
 
-function toggleExercise(card) {
-  card.classList.toggle('ex-done');
-  const icon = card.querySelector('.ex-check-icon');
-  const checked = card.classList.contains('ex-done');
-  if (checked) {
-    icon.className = 'bi bi-check-square-fill ex-check-icon me-2';
-    icon.style.color = 'var(--green)';
+function toggleSet(btn, event) {
+  event.stopPropagation();
+  btn.classList.toggle('set-done');
+  const icon = btn.querySelector('i');
+  if (btn.classList.contains('set-done')) {
+    icon.className = 'bi bi-check-square-fill';
   } else {
-    icon.className = 'bi bi-square ex-check-icon me-2';
-    icon.style.color = 'var(--muted)';
+    icon.className = 'bi bi-square';
   }
-  // Save to server
-  const exName = card.querySelector('h6').textContent.trim();
+  // Check if all sets in this exercise are done
+  const card = btn.closest('.ex-card');
+  const allSets = card.querySelectorAll('.set-btn');
+  const doneSets = card.querySelectorAll('.set-btn.set-done');
+  const allDone = allSets.length === doneSets.length;
+  const cardIcon = card.querySelector('.ex-card-icon');
+
+  if (allDone) {
+    card.classList.add('ex-done');
+    cardIcon.className = 'bi bi-check-square-fill ex-card-icon me-2';
+    cardIcon.style.color = 'var(--green)';
+  } else {
+    card.classList.remove('ex-done');
+    if (doneSets.length > 0) {
+      cardIcon.className = 'bi bi-dash-square ex-card-icon me-2';
+      cardIcon.style.color = 'var(--accent2)';
+    } else {
+      cardIcon.className = 'bi bi-square ex-card-icon me-2';
+      cardIcon.style.color = 'var(--muted)';
+    }
+  }
+  // Build sets state array and save to server
+  const setsState = [];
+  allSets.forEach(s => setsState.push(s.classList.contains('set-done')));
+  const exName = card.dataset.name;
   fetch('/api/checklist', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
     body: JSON.stringify({
-      kind: 'exercise', name: exName, checked: checked,
+      kind: 'exercise', name: exName, checked: allDone,
+      sets: setsState,
+      sets_done: doneSets.length,
+      sets_total: allSets.length,
       workout_type: '{{ today_schedule.label }}', date: '{{ today }}'
     })
   });
@@ -694,11 +742,11 @@ function toggleExercise(card) {
 }
 
 function updateExProgress() {
-  const all = document.querySelectorAll('.ex-checkable');
-  const done = document.querySelectorAll('.ex-checkable.ex-done');
+  const all = document.querySelectorAll('.ex-card');
+  const done = document.querySelectorAll('.ex-card.ex-done');
   const text = document.querySelector('.ex-progress-text');
   if (text) {
-    text.textContent = done.length + ' / ' + all.length + ' complete';
+    text.textContent = done.length + ' / ' + all.length + ' exercises complete';
     if (done.length === all.length && all.length > 0) {
       text.style.color = 'var(--green)';
       text.textContent += ' \u2714';
@@ -712,15 +760,18 @@ function loadHistory() {
   fetch('/api/history').then(r => r.json()).then(days => {
     const el = document.getElementById('historyView');
     if (!el || !days.length) return;
-    let html = '<table class="table table-sm table-dark" style="font-size:0.82rem;"><thead><tr><th>Date</th><th>Workout</th><th>Exercises</th><th>Protein</th><th>Steps</th><th>Water</th><th>Sleep</th></tr></thead><tbody>';
+    let html = '<table class="table table-sm table-dark" style="font-size:0.82rem;"><thead><tr><th>Date</th><th>Workout</th><th>Exercises</th><th>Sets</th><th>Protein</th><th>Steps</th><th>Water</th><th>Sleep</th></tr></thead><tbody>';
     days.forEach(d => {
       const pct = d.exercises_total > 0 ? Math.round(d.exercises_done / d.exercises_total * 100) : 0;
       const pctColor = pct === 100 ? 'var(--green)' : pct > 0 ? 'var(--accent2)' : 'var(--muted)';
+      const setPct = d.sets_total > 0 ? Math.round(d.sets_done / d.sets_total * 100) : 0;
+      const setColor = setPct === 100 ? 'var(--green)' : setPct > 0 ? 'var(--accent2)' : 'var(--muted)';
       const check = (key) => d.daily[key] ? '<i class="bi bi-check-circle-fill" style="color:var(--green);"></i>' : '<i class="bi bi-circle" style="color:#333;"></i>';
       html += '<tr>';
       html += '<td>' + d.date + '</td>';
       html += '<td style="font-size:0.75rem;">' + (d.workout_type || '-') + '</td>';
       html += '<td><span style="color:' + pctColor + ';">' + d.exercises_done + '/' + d.exercises_total + '</span></td>';
+      html += '<td><span style="color:' + setColor + ';">' + d.sets_done + '/' + d.sets_total + '</span></td>';
       html += '<td>' + check('protein') + '</td>';
       html += '<td>' + (d.daily['steps10k'] ? '<span style="color:var(--green);">10k</span>' : d.daily['steps5k'] ? '<span style="color:var(--accent2);">5k</span>' : '<i class="bi bi-circle" style="color:#333;"></i>') + '</td>';
       html += '<td>' + check('water') + '</td>';
@@ -741,14 +792,41 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.classList.add('checked');
       }
     });
-    // Restore exercise checks
-    document.querySelectorAll('.ex-checkable').forEach(card => {
-      const exName = card.querySelector('h6').textContent.trim();
-      if (state.exercises[exName]) {
+    // Restore exercise set checks
+    document.querySelectorAll('.ex-card').forEach(card => {
+      const exName = card.dataset.name;
+      const exData = state.exercises_detail ? state.exercises_detail[exName] : null;
+      if (exData && exData.sets) {
+        const setBtns = card.querySelectorAll('.set-btn');
+        exData.sets.forEach((done, i) => {
+          if (done && setBtns[i]) {
+            setBtns[i].classList.add('set-done');
+            setBtns[i].querySelector('i').className = 'bi bi-check-square-fill';
+          }
+        });
+        // Update card icon
+        const allSets = card.querySelectorAll('.set-btn');
+        const doneSets = card.querySelectorAll('.set-btn.set-done');
+        const cardIcon = card.querySelector('.ex-card-icon');
+        if (doneSets.length === allSets.length) {
+          card.classList.add('ex-done');
+          cardIcon.className = 'bi bi-check-square-fill ex-card-icon me-2';
+          cardIcon.style.color = 'var(--green)';
+        } else if (doneSets.length > 0) {
+          cardIcon.className = 'bi bi-dash-square ex-card-icon me-2';
+          cardIcon.style.color = 'var(--accent2)';
+        }
+      } else if (state.exercises && state.exercises[exName]) {
+        // Fallback: old format where it's just true/false
+        const setBtns = card.querySelectorAll('.set-btn');
+        setBtns.forEach(btn => {
+          btn.classList.add('set-done');
+          btn.querySelector('i').className = 'bi bi-check-square-fill';
+        });
         card.classList.add('ex-done');
-        const icon = card.querySelector('.ex-check-icon');
-        icon.className = 'bi bi-check-square-fill ex-check-icon me-2';
-        icon.style.color = 'var(--green)';
+        const cardIcon = card.querySelector('.ex-card-icon');
+        cardIcon.className = 'bi bi-check-square-fill ex-card-icon me-2';
+        cardIcon.style.color = 'var(--green)';
       }
     });
     updateExProgress();

@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, jsonify
 from datetime import datetime, date
 import json
 import os
+import re
 
 app = Flask(__name__)
 
@@ -523,6 +524,29 @@ TRAINING_PRINCIPLES = [
 ]
 
 
+def parse_set_count(sets_str):
+    """Parse a sets string like '3 x 8-10' into a number of sets."""
+    s = sets_str.strip().lower()
+    # "3 x 5", "5 x 15-20", "3x5"
+    m = re.match(r"(\d+)\s*x\s*", s)
+    if m:
+        return int(m.group(1))
+    # "3 sets", "2 sets to failure", "10 sets of 10"
+    m = re.match(r"(\d+)\s*sets?\b", s)
+    if m:
+        return int(m.group(1))
+    # "3 per side" or "2-3 per side"
+    m = re.match(r"(\d+)(?:-\d+)?\s*per side", s)
+    if m:
+        return int(m.group(1)) * 2  # both sides
+    # "AMRAP" - treat as 1 block
+    if "amrap" in s:
+        return 1
+    # "50 each" - treat as 1
+    # Fallback: 1 checkbox
+    return 1
+
+
 @app.route("/")
 def index():
     today = date.today()
@@ -532,6 +556,11 @@ def index():
         WEEKLY_SCHEDULE[0],
     )
     today_workout = WORKOUTS.get(today_schedule["type"])
+
+    # Add set_count to each exercise for the template
+    if today_workout:
+        for ex in today_workout["exercises"]:
+            ex["set_count"] = parse_set_count(ex["sets"])
 
     data = load_data()
     recent_weights = sorted(data.get("weight_log", []), key=lambda x: x["date"])[-30:]
@@ -587,14 +616,23 @@ def save_checklist():
     if day not in data["checklist_history"]:
         data["checklist_history"][day] = {
             "exercises": {},
+            "exercises_detail": {},
             "daily": {},
             "workout_type": "",
         }
 
     record = data["checklist_history"][day]
+    if "exercises_detail" not in record:
+        record["exercises_detail"] = {}
 
     if payload.get("kind") == "exercise":
         record["exercises"][payload["name"]] = payload["checked"]
+        record["exercises_detail"][payload["name"]] = {
+            "sets": payload.get("sets", []),
+            "sets_done": payload.get("sets_done", 0),
+            "sets_total": payload.get("sets_total", 0),
+            "checked": payload["checked"],
+        }
         record["workout_type"] = payload.get("workout_type", "")
     elif payload.get("kind") == "daily":
         record["daily"][payload["item"]] = payload["checked"]
@@ -608,7 +646,7 @@ def get_checklist(day):
     """Get checklist state for a given date."""
     data = load_data()
     history = data.get("checklist_history", {})
-    return jsonify(history.get(day, {"exercises": {}, "daily": {}, "workout_type": ""}))
+    return jsonify(history.get(day, {"exercises": {}, "exercises_detail": {}, "daily": {}, "workout_type": ""}))
 
 
 @app.route("/api/history")
@@ -622,14 +660,20 @@ def get_history():
     for day in sorted_days:
         record = history[day]
         ex = record.get("exercises", {})
+        ex_detail = record.get("exercises_detail", {})
         daily = record.get("daily", {})
         ex_total = len(ex)
         ex_done = sum(1 for v in ex.values() if v)
+        # Count total sets
+        total_sets = sum(d.get("sets_total", 0) for d in ex_detail.values())
+        done_sets = sum(d.get("sets_done", 0) for d in ex_detail.values())
         result.append({
             "date": day,
             "workout_type": record.get("workout_type", ""),
             "exercises_done": ex_done,
             "exercises_total": ex_total,
+            "sets_done": done_sets,
+            "sets_total": total_sets,
             "daily": daily,
         })
     return jsonify(result)
