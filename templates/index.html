@@ -128,8 +128,8 @@
                   <div class="stat-label">Calories</div>
                 </div>
                 <div class="col-3">
-                  <div class="stat-number" style="color: var(--accent);">{{ profile.protein }}g</div>
-                  <div class="stat-label">Protein</div>
+                  <div class="stat-number" style="color: var(--accent);">{{ profile.protein_min }}g</div>
+                  <div class="stat-label">Protein ({{ profile.protein_stretch }}g stretch)</div>
                 </div>
                 <div class="col-3">
                   <div class="stat-number" style="color: var(--accent2);">{{ profile.carbs }}g</div>
@@ -363,8 +363,8 @@
               <div class="stat-label">Total Calories</div>
             </div>
             <div class="col-3">
-              <div class="stat-number" style="color: var(--accent);">{{ meal_plan.overview.protein }}g</div>
-              <div class="stat-label">Protein (30%)</div>
+              <div class="stat-number" style="color: var(--accent);">{{ meal_plan.overview.protein_min }}g</div>
+              <div class="stat-label">Protein ({{ meal_plan.overview.protein_stretch }}g stretch)</div>
             </div>
             <div class="col-3">
               <div class="stat-number" style="color: var(--accent2);">{{ meal_plan.overview.carbs }}g</div>
@@ -433,6 +433,37 @@
         </div>
       </div>
 
+      <!-- Quick Protein -->
+      <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-lightning-charge section-icon"></i>Quick Protein (No-Cook)</div>
+        <div class="card-body">
+          <p class="text-muted mb-2" style="font-size: 0.82rem;">Grab-and-go options when you need to close the protein gap without cooking.</p>
+          <div class="row">
+            {% for item in meal_plan.quick_protein %}
+            <div class="col-md-4 mb-2">
+              <div class="d-flex justify-content-between align-items-center p-2" style="background: #111827; border-radius: 6px; font-size: 0.85rem;">
+                <span>{{ item.food }}</span>
+                <span>
+                  <strong style="color: var(--accent);">{{ item.protein }}g</strong>
+                  <small class="text-muted ms-1">{{ item.notes }}</small>
+                </span>
+              </div>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      <!-- Batch Cook Ideas -->
+      <div class="card mb-3">
+        <div class="card-header"><i class="bi bi-fire section-icon"></i>Batch Cook Ideas (Sunday Prep)</div>
+        <div class="card-body">
+          {% for idea in meal_plan.batch_cook_ideas %}
+          <div class="tip-item"><i class="bi bi-check-circle" style="color: var(--green); margin-right: 0.5rem;"></i>{{ idea }}</div>
+          {% endfor %}
+        </div>
+      </div>
+
       <!-- Swaps -->
       <div class="card mb-3">
         <div class="card-header"><i class="bi bi-arrow-left-right section-icon"></i>Easy Swaps</div>
@@ -491,7 +522,7 @@
             <div class="card-body">
               <div class="d-flex flex-wrap gap-2 mb-3">
                 <button class="tracker-btn" onclick="toggleCheck(this)" data-item="workout"><i class="bi bi-lightning"></i> Workout Done</button>
-                <button class="tracker-btn" onclick="toggleCheck(this)" data-item="protein"><i class="bi bi-egg-fried"></i> Hit 190g Protein</button>
+                <button class="tracker-btn" onclick="toggleCheck(this)" data-item="protein"><i class="bi bi-egg-fried"></i> Hit 170g Protein</button>
                 <button class="tracker-btn" onclick="toggleCheck(this)" data-item="steps5k"><i class="bi bi-signpost"></i> 5k Steps</button>
                 <button class="tracker-btn" onclick="toggleCheck(this)" data-item="steps10k"><i class="bi bi-signpost-2"></i> 10k Steps</button>
                 <button class="tracker-btn" onclick="toggleCheck(this)" data-item="water"><i class="bi bi-droplet"></i> Gallon of Water</button>
